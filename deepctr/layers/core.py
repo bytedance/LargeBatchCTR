@@ -152,12 +152,13 @@ class DNN(Layer):
         #     raise ValueError("hidden_units is empty")
         input_size = input_shape[-1]
         hidden_units = [int(input_size)] + list(self.hidden_units)
+        regularizer = None if self.l2_reg == 0 else l2(self.l2_reg)
         self.kernels = [self.add_weight(name='kernel' + str(i),
                                         shape=(
                                             hidden_units[i], hidden_units[i + 1]),
                                         initializer=glorot_normal(
                                             seed=self.seed),
-                                        regularizer=l2(self.l2_reg),
+                                        regularizer=regularizer,
                                         trainable=True) for i in range(len(self.hidden_units))]
         self.bias = [self.add_weight(name='bias' + str(i),
                                      shape=(self.hidden_units[i],),

@@ -9,6 +9,7 @@ Author:
 from collections import defaultdict
 from itertools import chain
 
+import tensorflow as tf
 from tensorflow.python.keras.layers import Embedding, Lambda
 from tensorflow.python.keras.regularizers import l2
 
@@ -23,10 +24,11 @@ def get_inputs_list(inputs):
 def create_embedding_dict(sparse_feature_columns, varlen_sparse_feature_columns, seed, l2_reg,
                           prefix='sparse_', seq_mask_zero=True):
     sparse_embedding = {}
+    regularizer = None if l2_reg == 0 else l2(l2_reg)
     for feat in sparse_feature_columns:
         emb = Embedding(feat.vocabulary_size, feat.embedding_dim,
                         embeddings_initializer=feat.embeddings_initializer,
-                        embeddings_regularizer=l2(l2_reg),
+                        embeddings_regularizer=regularizer,
                         name=prefix + '_emb_' + feat.embedding_name)
         emb.trainable = feat.trainable
         sparse_embedding[feat.embedding_name] = emb
@@ -36,8 +38,7 @@ def create_embedding_dict(sparse_feature_columns, varlen_sparse_feature_columns,
             # if feat.name not in sparse_embedding:
             emb = Embedding(feat.vocabulary_size, feat.embedding_dim,
                             embeddings_initializer=feat.embeddings_initializer,
-                            embeddings_regularizer=l2(
-                                l2_reg),
+                            embeddings_regularizer=regularizer,
                             name=prefix + '_seq_emb_' + feat.name,
                             mask_zero=seq_mask_zero)
             emb.trainable = feat.trainable

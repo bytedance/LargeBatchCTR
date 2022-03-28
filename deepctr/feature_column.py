@@ -150,16 +150,16 @@ def build_input_features(feature_columns, prefix=''):
 
 
 def get_linear_logit(features, feature_columns, units=1, use_bias=False, seed=1024, prefix='linear',
-                     l2_reg=0, sparse_feat_refine_weight=None):
+                     l2_reg=0, sparse_feat_refine_weight=None, init=Zeros()):
     linear_feature_columns = copy(feature_columns)
     for i in range(len(linear_feature_columns)):
         if isinstance(linear_feature_columns[i], SparseFeat):
             linear_feature_columns[i] = linear_feature_columns[i]._replace(embedding_dim=1,
-                                                                           embeddings_initializer=Zeros())
+                                                                           embeddings_initializer=init)
         if isinstance(linear_feature_columns[i], VarLenSparseFeat):
             linear_feature_columns[i] = linear_feature_columns[i]._replace(
                 sparsefeat=linear_feature_columns[i].sparsefeat._replace(embedding_dim=1,
-                                                                         embeddings_initializer=Zeros()))
+                                                                         embeddings_initializer=init))
 
     linear_emb_list = [input_from_feature_columns(features, linear_feature_columns, l2_reg, seed,
                                                   prefix=prefix + str(i))[0] for i in range(units)]

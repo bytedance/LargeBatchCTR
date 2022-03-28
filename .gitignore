@@ -1,6 +1,10 @@
 # data
-data/*
 !data/.gitkeep
+!data/criteo_kaggle/criteo_sample.txt
+data/criteo_kaggle/train.txt
+data/avazu
+data/taobao
+data/criteo_terabyte
 
 
 *.h5

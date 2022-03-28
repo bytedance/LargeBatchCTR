@@ -20,7 +20,7 @@ from ..layers.utils import concat_func, add_func, combined_dnn_input
 
 def DeepFM(linear_feature_columns, dnn_feature_columns, fm_group=(DEFAULT_GROUP_NAME,), dnn_hidden_units=(256, 128, 64),
            l2_reg_linear=0.00001, l2_reg_embedding=0.00001, l2_reg_dnn=0, seed=1024, dnn_dropout=0,
-           dnn_activation='relu', dnn_use_bn=False, task='binary'):
+           dnn_activation='relu', dnn_use_bn=False, task='binary', keras_model=tf.keras.models.Model):
     """Instantiates the DeepFM Network architecture.
 
     :param linear_feature_columns: An iterable containing all the features used by linear part of the model.
@@ -61,5 +61,5 @@ def DeepFM(linear_feature_columns, dnn_feature_columns, fm_group=(DEFAULT_GROUP_
     final_logit = add_func([linear_logit, fm_logit, dnn_logit])
 
     output = PredictionLayer(task)(final_logit)
-    model = tf.keras.models.Model(inputs=inputs_list, outputs=output)
+    model = keras_model(inputs=inputs_list, outputs=output)
     return model

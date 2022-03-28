@@ -2,9 +2,9 @@ import datetime
 import os
 from pathlib import Path
 
-import tensorflow as tf
 import numpy as np
-from sklearn.metrics import log_loss, roc_auc_score
+import tensorflow as tf
+from sklearn.metrics import roc_auc_score
 
 
 def print_curtime(note=None):

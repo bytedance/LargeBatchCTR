@@ -16,7 +16,7 @@ from ..layers.utils import add_func, combined_dnn_input
 
 def WDL(linear_feature_columns, dnn_feature_columns, dnn_hidden_units=(256, 128, 64), l2_reg_linear=0.00001,
         l2_reg_embedding=0.00001, l2_reg_dnn=0, seed=1024, dnn_dropout=0, dnn_activation='relu',
-        task='binary'):
+        task='binary', keras_model=tf.keras.models.Model):
     """Instantiates the Wide&Deep Learning architecture.
 
     :param linear_feature_columns: An iterable containing all the features used by linear part of the model.
@@ -52,5 +52,5 @@ def WDL(linear_feature_columns, dnn_feature_columns, dnn_hidden_units=(256, 128,
 
     output = PredictionLayer(task)(final_logit)
 
-    model = tf.keras.models.Model(inputs=inputs_list, outputs=output)
+    model = keras_model(inputs=inputs_list, outputs=output)
     return model

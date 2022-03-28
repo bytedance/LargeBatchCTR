@@ -3,9 +3,8 @@ import os
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from sklearn.model_selection import train_test_split
-
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 
 sparse_features = {
     "criteo_kaggle": ["C" + str(i) for i in range(1, 27)],

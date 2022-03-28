@@ -21,7 +21,7 @@ from ..layers.utils import add_func, combined_dnn_input
 def DCNMix(linear_feature_columns, dnn_feature_columns, cross_num=2,
            dnn_hidden_units=(256, 128, 64), l2_reg_linear=1e-5, l2_reg_embedding=1e-5, low_rank=32, num_experts=4,
            l2_reg_cross=1e-5, l2_reg_dnn=0, seed=1024, dnn_dropout=0, dnn_use_bn=False,
-           dnn_activation='relu', task='binary'):
+           dnn_activation='relu', task='binary', keras_model=tf.keras.models.Model):
     """Instantiates the Deep&Cross Network with mixture of experts architecture.
 
     :param linear_feature_columns: An iterable containing all the features used by linear part of the model.
@@ -78,6 +78,6 @@ def DCNMix(linear_feature_columns, dnn_feature_columns, cross_num=2,
     final_logit = add_func([final_logit, linear_logit])
     output = PredictionLayer(task)(final_logit)
 
-    model = tf.keras.models.Model(inputs=inputs_list, outputs=output)
+    model = keras_model(inputs=inputs_list, outputs=output)
 
     return model

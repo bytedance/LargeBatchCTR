@@ -1,0 +1,4 @@
+tensorflow-gpu==2.4.0
+tensorflow-addons
+pandas
+scikit-learnn

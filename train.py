@@ -5,18 +5,22 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_addons as tfa
 
-from deepctr.feature_column import DenseFeat, SparseFeat, get_feature_names
-from deepctr.models import DeepFM
+from clip import clip_id_norm
 from data_utils import load_data, load_feature_name
-from utils import create_logdir, print_curtime, tf_allow_growth, auc
+from deepctr.feature_column import DenseFeat, SparseFeat, get_feature_names
+from deepctr.models import DeepFM, WDL, xDeepFM, DCN, DCNMix
+from deepctr.models.widefm import wideFM
+from utils import auc, create_logdir, print_curtime, tf_allow_growth
+from sklearn.metrics import roc_auc_score, log_loss
 
 
 def parseargs():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--seed", default=1234, type=int)  # 1234, 1235, 1236
+    parser.add_argument("--seed", default=1235, type=int)  # 1234, 1235, 1236
     parser.add_argument("--dataset", default="criteo_kaggle",
                         choices=["criteo_kaggle", "criteo_terabyte", "avazu", "alibaba"], type=str)
-    parser.add_argument("--model", choices=["DeepFM"], default="DeepFM")
+    parser.add_argument(
+        "--model", choices=["LR", "FM", "WD", "DeepFM", "xDeepFM", "DCN", "DCNv2"], default="DeepFM")
 
     # Debug
     parser.add_argument("--eager", action="store_true")
@@ -26,7 +30,7 @@ def parseargs():
     # Hyperparemters
     parser.add_argument("--epoch", default=10, type=int)
     parser.add_argument("--opt", type=str, default="adam")
-    parser.add_argument("--sparse_embed_dim", type=int, default=4)
+    parser.add_argument("--sparse_embed_dim", type=int, default=10)
     parser.add_argument("--dropout", type=float, default=0)
 
     # HPs
@@ -64,6 +68,14 @@ def get_feature_column(data, sparse_features, dense_features):
     return feature_names, dnn_feature_columns, linear_feature_columns
 
 
+def run_test(model, test_model_input, y_test):
+    pred_ans = model.predict(test_model_input, batch_size=args.bs)
+    pred_ans = pred_ans.astype(np.float64)
+    return round(log_loss(y_test, pred_ans), 5), round(
+        roc_auc_score(y_test, pred_ans), 5
+    )
+
+
 class CustomModel(tf.keras.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -94,19 +106,17 @@ class CustomModel(tf.keras.Model):
         x, y = data
         with tf.GradientTape() as tape:
             y_pred = self(x, training=True)
-            loss = self.compiled_loss(y, y_pred)
-            # loss = self.compiled_loss(y, y_pred, regularization_losses=self.losses)
+            # loss = self.compiled_loss(y, y_pred)
+            loss = self.compiled_loss(
+                y, y_pred, regularization_losses=self.losses)
 
         trainable_vars = self.trainable_variables
         gradients = tape.gradient(loss, trainable_vars)
+
+        # clip
         name_to_gradient = {
             x.name: g for x, g in zip(self.trainable_variables, gradients)
         }
-        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
-
-        # =====
-        # Logging
-        # =====
         embed_index = [
             i for i, x in enumerate(trainable_vars) if "embeddings" in x.name
         ]
@@ -116,7 +126,39 @@ class CustomModel(tf.keras.Model):
         dense_vars = [trainable_vars[i] for i in dense_index]
         embed_gradients = [gradients[i] for i in embed_index]
         dense_gradients = [gradients[i] for i in dense_index]
+        if args.clip > 0:
+            embed_gradients_clipped = []
+            prefixs = ["linear0sparse_emb_", "sparse_emb_"]
+            for w, g in zip(embed_vars, embed_gradients):
+                prefix = None
+                for p in prefixs:
+                    if p in w.name:
+                        prefix = p
+                        break
+                if prefix is None:
+                    embed_gradients_clipped.append(g)
+                    continue
+                col_name = w.name[
+                    w.name.find(prefix) + len(prefix): w.name.find("/")
+                ]
 
+                g = clip_id_norm(w, g, ratio=args.clip,
+                                 ids=uniq_ids[col_name], cnts=uniq_cnt[col_name])
+                embed_gradients_clipped.append(g)
+
+            embed_gradients = embed_gradients_clipped
+        gradients = embed_gradients + dense_gradients
+
+        # update
+        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+
+        # =====
+        # Logging
+        # =====
+        embed_vars = [trainable_vars[i] for i in embed_index]
+        dense_vars = [trainable_vars[i] for i in dense_index]
+        embed_gradients = [gradients[i] for i in embed_index]
+        dense_gradients = [gradients[i] for i in dense_index]
         with record_env:
             tf.summary.scalar("loss/loss", loss)
             tf.summary.scalar("global_norm/global",
@@ -192,9 +234,21 @@ if __name__ == "__main__":
             l2_reg_linear=args.l2,
             l2_reg_embedding=args.l2,
             keras_model=CustomModel,
+            seed=args.seed,
         )
-        if args.model == "DeepFM":
+        if args.model == "FM":
+            model_class = wideFM
+        elif args.model == "DeepFM":
             model_class = DeepFM
+        elif args.model == "WD":
+            model_class = WDL
+        elif args.model == "DCN":
+            model_class = DCN
+            model_args['cross_num'] = 3
+        elif args.model == "DCNv2":
+            model_class = DCNMix
+            model_args['cross_num'] = 3
+        
         model = model_class(linear_feature_columns,
                             dnn_feature_columns, **model_args)
 
@@ -229,15 +283,10 @@ if __name__ == "__main__":
                 tf.keras.optimizers.Adam(learning_rate=learning_rate_fn),
                 tf.keras.optimizers.Adam(learning_rate=lr_fn),
             ]
-        elif args.opt == "adagrad":
+        elif args.opt == "lamb":
             optimizers = [
                 tf.keras.optimizers.Adagrad(learning_rate=learning_rate_fn),
-                tf.keras.optimizers.Adam(learning_rate=lr_fn),
-            ]
-        elif args.opt == "ftrl":
-            optimizers = [
-                tf.keras.optimizers.Ftrl(learning_rate=learning_rate_fn),
-                tf.keras.optimizers.Adam(learning_rate=lr_fn),
+                tfa.optimizers.LAMB(learning_rate=lr_fn),
             ]
         else:
             raise NotImplementedError
@@ -271,4 +320,10 @@ if __name__ == "__main__":
             )
         ],
     )
+
+    # =====
+    # Test
+    # =====
+    logloss, auc = run_test(model, test_model_input, y_test)
+    print(f"[Test] LogLoss = {logloss}, AUC = {auc}")
     print_curtime("Program Ended")

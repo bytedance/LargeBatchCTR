@@ -1,13 +1,19 @@
 import tensorflow as tf
 
 
-def clip_id_norm(w, g, ratio=1, ids=None, cnts=None):
+def clip_id_norm(w, g, ratio=1, ids=None, cnts=None, min_w=0.03, const=False):
     if isinstance(g, tf.IndexedSlices):
+        # This part is not tested
         values = tf.convert_to_tensor(g.values)
         clipnorm = tf.norm(tf.gather(w, g.indices), axis=-1)
     else:
         values = g
-        clipnorm = tf.norm(w, axis=-1)
+        if const:
+            clipnorm = tf.constant([min_w] * g.shape[0])
+        else:
+            clipnorm = tf.norm(w, axis=-1)
+            # bound weight norm by min_w
+            clipnorm = tf.maximum(clipnorm, min_w)
         # scale by cnting
         cnts = tf.tensor_scatter_nd_update(
             tf.ones([clipnorm.shape[0]], dtype=tf.int32),
@@ -23,6 +29,9 @@ def clip_id_norm(w, g, ratio=1, ids=None, cnts=None):
     l2norm_row = tf.sqrt(l2sum_row_safe)
     intermediate = values * tf.expand_dims(clip_t, -1)
     g_clip = intermediate / tf.expand_dims(tf.maximum(l2norm_row, clip_t), -1)
+    
+    # if tf.reduce_sum(tf.cast(l2sum_row > clip_t, tf.float32)) > 0:
+    #     breakpoint()
 
     if isinstance(g, tf.IndexedSlices):
         return tf.IndexedSlices(g_clip, g.indices, g.dense_shape)
@@ -40,4 +49,5 @@ def clip_kernel_norm(w, g, ratio=1):
     l2norm_row = tf.sqrt(l2sum_row_safe)
     intermediate = g * tf.expand_dims(clip_t, -1)
     g_clip = intermediate / tf.expand_dims(tf.maximum(l2norm_row, clip_t), -1)
+
     return g_clip

@@ -44,7 +44,9 @@ def parseargs():
     parser.add_argument("--clip", type=float, default=0)
     parser.add_argument("--warmup", type=float, default=0)
     parser.add_argument("--init_stddev", type=float, default=1e-4)
+    parser.add_argument("--bound", type=float, default=0)
 
+    parser.add_argument("--clip_skip_epoch", type=float, default=0)
     parser.add_argument("--clip_dense", type=float, default=0)
 
     args = parser.parse_args()
@@ -129,21 +131,18 @@ class CustomModel(tf.keras.Model):
         dense_vars = [trainable_vars[i] for i in dense_index]
         embed_gradients = [gradients[i] for i in embed_index]
         dense_gradients = [gradients[i] for i in dense_index]
+
         if args.clip > 0:
             # === global ===
             # embed_gradients = tf.clip_by_global_norm(embed_gradients, args.clip)
             # === id, slot ===
+            lower_bound = args.clip * sqrt(args.sparse_embed_dim) * args.bound
             embed_gradients_clipped = []
-            prefixs = ["linear0sparse_emb_", "sparse_emb_"]
             for w, g in zip(embed_vars, embed_gradients):
-                prefix = None
-                for p in prefixs:
-                    if p in w.name:
-                        prefix = p
-                        break
-                if prefix is None:
+                if 'linear' in w.name:
                     embed_gradients_clipped.append(g)
                     continue
+                prefix = "sparse_emb_"
                 col_name = w.name[
                     w.name.find(prefix) + len(prefix): w.name.find("/")
                 ]
@@ -152,9 +151,17 @@ class CustomModel(tf.keras.Model):
                 # g_clipped = tf.clip_by_norm(g, args.clip)
                 # == id ==
                 g_clipped = clip_id_norm(w, g, ratio=args.clip,
-                                         ids=uniq_ids[col_name], cnts=uniq_cnt[col_name])
-                # g_clipped = tf.cond(self.cur_step < 2 * num_step_per_epoch,
-                #             lambda: g, lambda: g_clipped)
+                                         ids=uniq_ids[col_name], cnts=uniq_cnt[col_name], min_w=lower_bound)
+                # == id ==
+                # g_clipped = clip_id_norm(w, g, ratio=args.clip,
+                #                                ids=uniq_ids[col_name], cnts=uniq_cnt[col_name], min_w=lower_bound, const=True)
+
+                if args.clip_skip_epoch > 0:
+                    g_clipped = tf.cond(
+                        self.cur_step < int(
+                            args.clip_skip_epoch * num_step_per_epoch),
+                        lambda: g, lambda: g_clipped
+                    )
                 embed_gradients_clipped.append(g_clipped)
 
             embed_gradients = embed_gradients_clipped
@@ -165,7 +172,8 @@ class CustomModel(tf.keras.Model):
                 if "dnn/kernel" not in w.name:
                     dense_gradients_clipped.append(g)
                 else:
-                    g_clipped = clip_kernel_norm(w, g, ratio=args.clip_dense)
+                    # g_clipped = clip_kernel_norm(w, g, ratio=args.clip_dense)
+                    g_clipped = tf.clip_by_norm(w, args.clip_dense)
                     dense_gradients_clipped.append(g_clipped)
 
         gradients = embed_gradients + dense_gradients

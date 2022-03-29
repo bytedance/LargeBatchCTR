@@ -28,3 +28,16 @@ def clip_id_norm(w, g, ratio=1, ids=None, cnts=None):
         return tf.IndexedSlices(g_clip, g.indices, g.dense_shape)
     else:
         return g_clip
+
+
+def clip_kernel_norm(w, g, ratio=1):
+    clipnorm = tf.norm(w, axis=-1)
+    clip_t = ratio * clipnorm
+
+    l2sum_row = tf.reduce_sum(g * g, axis=-1)
+    pred = l2sum_row > 0
+    l2sum_row_safe = ratio * tf.where(pred, l2sum_row, tf.ones_like(l2sum_row))
+    l2norm_row = tf.sqrt(l2sum_row_safe)
+    intermediate = g * tf.expand_dims(clip_t, -1)
+    g_clip = intermediate / tf.expand_dims(tf.maximum(l2norm_row, clip_t), -1)
+    return g_clip

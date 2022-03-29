@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_addons as tfa
 
-from clip import clip_id_norm
+from clip import clip_id_norm, clip_kernel_norm
 from data_utils import load_data, load_feature_name
 from deepctr.feature_column import DenseFeat, SparseFeat, get_feature_names
 from deepctr.models import DeepFM, WDL, xDeepFM, DCN, DCNMix
@@ -29,7 +29,6 @@ def parseargs():
 
     # Hyperparemters
     parser.add_argument("--epoch", default=10, type=int)
-    parser.add_argument("--opt", type=str, default="adam")
     parser.add_argument("--sparse_embed_dim", type=int, default=10)
     parser.add_argument("--dropout", type=float, default=0)
 
@@ -40,9 +39,12 @@ def parseargs():
     parser.add_argument("--l2", type=float, default=1e-5)
 
     # HPs
+    parser.add_argument("--opt", type=str, default="adam")
     parser.add_argument("--clip", type=float, default=0)
     parser.add_argument("--warmup", type=float, default=0)
     parser.add_argument("--init_stddev", type=float, default=1e-4)
+
+    parser.add_argument("--clip_dense", type=float, default=0)
 
     args = parser.parse_args()
     return args
@@ -147,6 +149,16 @@ class CustomModel(tf.keras.Model):
                 embed_gradients_clipped.append(g)
 
             embed_gradients = embed_gradients_clipped
+
+        if args.clip_dense > 0:
+            for w, g in zip(dense_vars, dense_gradients):
+                dense_gradients_clipped = []
+                if "dnn/kernel" not in w.name:
+                    dense_gradients_clipped.append(g)
+                else:
+                    g_clipped = clip_kernel_norm(w, g, ratio=args.clip_dense)
+                    dense_gradients_clipped.append(g_clipped)
+
         gradients = embed_gradients + dense_gradients
 
         # update
@@ -155,8 +167,6 @@ class CustomModel(tf.keras.Model):
         # =====
         # Logging
         # =====
-        embed_vars = [trainable_vars[i] for i in embed_index]
-        dense_vars = [trainable_vars[i] for i in dense_index]
         embed_gradients = [gradients[i] for i in embed_index]
         dense_gradients = [gradients[i] for i in dense_index]
         with record_env:
@@ -223,76 +233,76 @@ if __name__ == "__main__":
     y_train = train[target].values
     y_test = test[target].values.astype(np.float64)
 
+    # =====
+    # Model
+    # =====
+    model_args = dict(
+        dnn_hidden_units=(400, 400, 400),
+        dnn_dropout=args.dropout,
+        l2_reg_linear=args.l2,
+        l2_reg_embedding=args.l2,
+        keras_model=CustomModel,
+        seed=args.seed,
+    )
+    if args.model == "FM":
+        model_class = wideFM
+    elif args.model == "DeepFM":
+        model_class = DeepFM
+    elif args.model == "WD":
+        model_class = WDL
+    elif args.model == "DCN":
+        model_class = DCN
+        model_args['cross_num'] = 3
+    elif args.model == "DCNv2":
+        model_class = DCNMix
+        model_args['cross_num'] = 3
+
     mirrored_strategy = tf.distribute.MirroredStrategy()
     with mirrored_strategy.scope():
-        # =====
-        # Model
-        # =====
-        model_args = dict(
-            dnn_hidden_units=(400, 400, 400),
-            dnn_dropout=args.dropout,
-            l2_reg_linear=args.l2,
-            l2_reg_embedding=args.l2,
-            keras_model=CustomModel,
-            seed=args.seed,
-        )
-        if args.model == "FM":
-            model_class = wideFM
-        elif args.model == "DeepFM":
-            model_class = DeepFM
-        elif args.model == "WD":
-            model_class = WDL
-        elif args.model == "DCN":
-            model_class = DCN
-            model_args['cross_num'] = 3
-        elif args.model == "DCNv2":
-            model_class = DCNMix
-            model_args['cross_num'] = 3
-        
         model = model_class(linear_feature_columns,
                             dnn_feature_columns, **model_args)
 
-        # =====
-        # Optimizer
-        # =====
-        layers = [
-            [
-                x
-                for x in model.layers
-                if "sparse_emb_" in x.name or "linear0sparse_emb_" in x.name
-            ],
-            [
-                x
-                for x in model.layers
-                if "sparse_emb_" not in x.name and "linear0sparse_emb_" not in x.name
-            ],
+    # =====
+    # Optimizer
+    # =====
+    layers = [
+        [
+            x
+            for x in model.layers
+            if "sparse_emb_" in x.name or "linear0sparse_emb_" in x.name
+        ],
+        [
+            x
+            for x in model.layers
+            if "sparse_emb_" not in x.name and "linear0sparse_emb_" not in x.name
+        ],
+    ]
+    num_step_per_epoch = int(len(y_train) / args.bs)
+
+    if args.warmup > 0:
+        learning_rate_fn = args.lr_embed
+        lr_fn = tf.keras.optimizers.schedules.PolynomialDecay(
+            1e-8, int(args.warmup * num_step_per_epoch), args.lr, power=1
+        )
+    else:
+        learning_rate_fn = args.lr_embed
+        lr_fn = args.lr
+
+    if args.opt == "adam":
+        optimizers = [
+            tf.keras.optimizers.Adam(learning_rate=learning_rate_fn),
+            tf.keras.optimizers.Adam(learning_rate=lr_fn),
         ]
-        num_step_per_epoch = int(len(y_train) / args.bs)
+    elif args.opt == "lamb":
+        optimizers = [
+            tf.keras.optimizers.Adagrad(learning_rate=learning_rate_fn),
+            tfa.optimizers.LAMB(learning_rate=lr_fn),
+        ]
+    else:
+        raise NotImplementedError
 
-        if args.warmup > 0:
-            learning_rate_fn = args.lr_embed
-            lr_fn = tf.keras.optimizers.schedules.PolynomialDecay(
-                1e-8, int(args.warmup * num_step_per_epoch), args.lr, power=1
-            )
-        else:
-            learning_rate_fn = args.lr_embed
-            lr_fn = args.lr
-
-        if args.opt == "adam":
-            optimizers = [
-                tf.keras.optimizers.Adam(learning_rate=learning_rate_fn),
-                tf.keras.optimizers.Adam(learning_rate=lr_fn),
-            ]
-        elif args.opt == "lamb":
-            optimizers = [
-                tf.keras.optimizers.Adagrad(learning_rate=learning_rate_fn),
-                tfa.optimizers.LAMB(learning_rate=lr_fn),
-            ]
-        else:
-            raise NotImplementedError
-
-        optimizers_and_layers = list(zip(optimizers, layers))
-        optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)
+    optimizers_and_layers = list(zip(optimizers, layers))
+    optimizer = tfa.optimizers.MultiOptimizer(optimizers_and_layers)
 
     # =====
     # Training

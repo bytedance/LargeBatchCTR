@@ -4,14 +4,14 @@ from math import sqrt
 import numpy as np
 import tensorflow as tf
 import tensorflow_addons as tfa
+from sklearn.metrics import log_loss, roc_auc_score
 
 from clip import clip_id_norm, clip_kernel_norm
 from data_utils import load_data, load_feature_name
 from deepctr.feature_column import DenseFeat, SparseFeat, get_feature_names
-from deepctr.models import DeepFM, WDL, xDeepFM, DCN, DCNMix
+from deepctr.models import DCN, WDL, DCNMix, DeepFM
 from deepctr.models.widefm import wideFM
 from utils import auc, create_logdir, print_curtime, tf_allow_growth
-from sklearn.metrics import roc_auc_score, log_loss
 
 
 def parseargs():
@@ -26,6 +26,7 @@ def parseargs():
     parser.add_argument("--eager", action="store_true")
     parser.add_argument("--log", action="store_true")
     parser.add_argument("--log_freq", default=100, type=int)
+    parser.add_argument("--profile", action="store_true")
 
     # Hyperparemters
     parser.add_argument("--epoch", default=10, type=int)
@@ -129,6 +130,9 @@ class CustomModel(tf.keras.Model):
         embed_gradients = [gradients[i] for i in embed_index]
         dense_gradients = [gradients[i] for i in dense_index]
         if args.clip > 0:
+            # === global ===
+            # embed_gradients = tf.clip_by_global_norm(embed_gradients, args.clip)
+            # === id, slot ===
             embed_gradients_clipped = []
             prefixs = ["linear0sparse_emb_", "sparse_emb_"]
             for w, g in zip(embed_vars, embed_gradients):
@@ -144,9 +148,14 @@ class CustomModel(tf.keras.Model):
                     w.name.find(prefix) + len(prefix): w.name.find("/")
                 ]
 
-                g = clip_id_norm(w, g, ratio=args.clip,
-                                 ids=uniq_ids[col_name], cnts=uniq_cnt[col_name])
-                embed_gradients_clipped.append(g)
+                # == slot ==
+                # g_clipped = tf.clip_by_norm(g, args.clip)
+                # == id ==
+                g_clipped = clip_id_norm(w, g, ratio=args.clip,
+                                         ids=uniq_ids[col_name], cnts=uniq_cnt[col_name])
+                # g_clipped = tf.cond(self.cur_step < 2 * num_step_per_epoch,
+                #             lambda: g, lambda: g_clipped)
+                embed_gradients_clipped.append(g_clipped)
 
             embed_gradients = embed_gradients_clipped
 
@@ -293,11 +302,6 @@ if __name__ == "__main__":
             tf.keras.optimizers.Adam(learning_rate=learning_rate_fn),
             tf.keras.optimizers.Adam(learning_rate=lr_fn),
         ]
-    elif args.opt == "lamb":
-        optimizers = [
-            tf.keras.optimizers.Adagrad(learning_rate=learning_rate_fn),
-            tfa.optimizers.LAMB(learning_rate=lr_fn),
-        ]
     else:
         raise NotImplementedError
 
@@ -316,6 +320,15 @@ if __name__ == "__main__":
         run_eagerly=args.eager,
     )
 
+    # tensorboard logger
+    tbcb_args = dict(write_graph=False, update_freq=args.log_freq)
+    if args.profile:
+        tbcb_args['histogram_freq'] = 1
+        tbcb_args['profile_batch'] = '80,100'
+    cb = tf.keras.callbacks.TensorBoard(
+        log_dir, **tbcb_args
+    )
+
     print_curtime("Start Training")
     model.fit(
         train_model_input,
@@ -324,11 +337,7 @@ if __name__ == "__main__":
         epochs=args.epoch,
         verbose=1,
         validation_data=(test_model_input, y_test),
-        callbacks=[
-            tf.keras.callbacks.TensorBoard(
-                log_dir, write_graph=False, update_freq=args.log_freq
-            )
-        ],
+        callbacks=[cb],
     )
 
     # =====

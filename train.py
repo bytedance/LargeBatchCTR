@@ -187,6 +187,8 @@ class CustomModel(tf.keras.Model):
         embed_gradients = [gradients[i] for i in embed_index]
         dense_gradients = [gradients[i] for i in dense_index]
         with record_env:
+            tf.summary.scalar(
+                "lr/dense", self.optimizer.optimizer_specs[1]['optimizer']._decayed_lr('float32'))
             tf.summary.scalar("loss/loss", loss)
             tf.summary.scalar("global_norm/global",
                               tf.linalg.global_norm(gradients))

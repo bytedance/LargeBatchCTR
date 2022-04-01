@@ -61,7 +61,7 @@ def num_params(model):
             dense_parameters += variable_parameters
 
     print(f"Total Params: {total_parameters}")
-    print(f"Embed Params: {dense_parameters}")
-    print(f"Dense Params: {embed_parameters}")
+    print(f"Dense Params: {dense_parameters}")
+    print(f"Embed Params: {embed_parameters}")
 
     return total_parameters

@@ -1,5 +1,6 @@
 import argparse
 from math import sqrt
+from random import choices
 
 import numpy as np
 import tensorflow as tf
@@ -11,7 +12,7 @@ from data_utils import load_data, load_feature_name
 from deepctr.feature_column import DenseFeat, SparseFeat, get_feature_names
 from deepctr.models import DCN, WDL, DCNMix, DeepFM
 from deepctr.models.widefm import wideFM
-from utils import auc, create_logdir, print_curtime, tf_allow_growth
+from utils import auc, create_logdir, print_curtime, tf_allow_growth, num_params
 
 
 def parseargs():
@@ -20,7 +21,7 @@ def parseargs():
     parser.add_argument("--dataset", default="criteo_kaggle",
                         choices=["criteo_kaggle", "criteo_terabyte", "avazu", "alibaba"], type=str)
     parser.add_argument("--split", default="rand",
-                        choice=["rand", "seq", "highfreq"])
+                        choices=["rand", "seq", "highfreq"])
     parser.add_argument(
         "--model", choices=["LR", "FM", "WD", "DeepFM", "xDeepFM", "DCN", "DCNv2"], default="DeepFM")
 
@@ -282,6 +283,7 @@ if __name__ == "__main__":
     with mirrored_strategy.scope():
         model = model_class(linear_feature_columns,
                             dnn_feature_columns, **model_args)
+        num_params(model)
 
     # =====
     # Optimizer

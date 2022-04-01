@@ -43,3 +43,25 @@ def auc_score(y_true, y_pred):
 
 def auc(y_true, y_pred):
     return tf.numpy_function(auc_score, (y_true, y_pred), tf.double)
+
+
+def num_params(model):
+    total_parameters = 0
+    embed_parameters = 0
+    dense_parameters = 0
+    for variable in model.trainable_variables:
+        shape = variable.get_shape()
+        variable_parameters = 1
+        for dim in shape:
+            variable_parameters *= dim
+        total_parameters += variable_parameters
+        if 'embedding' in variable.name:
+            embed_parameters += variable_parameters
+        else:
+            dense_parameters += variable_parameters
+
+    print(f"Total Params: {total_parameters}")
+    print(f"Embed Params: {dense_parameters}")
+    print(f"Dense Params: {embed_parameters}")
+
+    return total_parameters

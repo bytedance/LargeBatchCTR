@@ -19,6 +19,8 @@ def parseargs():
     parser.add_argument("--seed", default=1235, type=int)  # 1234, 1235, 1236
     parser.add_argument("--dataset", default="criteo_kaggle",
                         choices=["criteo_kaggle", "criteo_terabyte", "avazu", "alibaba"], type=str)
+    parser.add_argument("--split", default="rand",
+                        choice=["rand", "seq", "highfreq"])
     parser.add_argument(
         "--model", choices=["LR", "FM", "WD", "DeepFM", "xDeepFM", "DCN", "DCNv2"], default="DeepFM")
 
@@ -241,7 +243,7 @@ if __name__ == "__main__":
     log_dir = create_logdir(args=args)
 
     sparse_features, dense_features, target = load_feature_name(args.dataset)
-    train, test = load_data(args.dataset)
+    train, test = load_data(args.dataset, split=args.split)
 
     # Define feature
     feature_names, dnn_feature_columns, linear_feature_columns = get_feature_column(

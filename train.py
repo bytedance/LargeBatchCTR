@@ -18,7 +18,7 @@ def parseargs():
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", default=1235, type=int)  # 1234, 1235, 1236
     parser.add_argument("--dataset", default="criteo_kaggle",
-                        choices=["criteo_kaggle", "criteo_terabyte", "avazu", "alibaba"], type=str)
+                        choices=["criteo_kaggle", "avazu"], type=str)
     parser.add_argument("--split", default="rand",
                         choices=["rand", "seq", "highfreq"])
     parser.add_argument(

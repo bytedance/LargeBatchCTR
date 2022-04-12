@@ -1,13 +1,12 @@
 import argparse
 from math import sqrt
-from random import choices
 
 import numpy as np
 import tensorflow as tf
 import tensorflow_addons as tfa
 from sklearn.metrics import log_loss, roc_auc_score
 
-from clip import clip_id_norm, clip_kernel_norm
+from clip import clip_id_norm
 from data_utils import load_data, load_feature_name
 from deepctr.feature_column import DenseFeat, SparseFeat, get_feature_names
 from deepctr.models import DCN, WDL, DCNMix, DeepFM
@@ -48,9 +47,6 @@ def parseargs():
     parser.add_argument("--warmup", type=float, default=0)
     parser.add_argument("--init_stddev", type=float, default=1e-4)
     parser.add_argument("--bound", type=float, default=0)
-
-    parser.add_argument("--clip_skip_epoch", type=float, default=0)
-    parser.add_argument("--clip_dense", type=float, default=0)
 
     args = parser.parse_args()
     return args
@@ -135,10 +131,8 @@ class CustomModel(tf.keras.Model):
         embed_gradients = [gradients[i] for i in embed_index]
         dense_gradients = [gradients[i] for i in dense_index]
 
+        # CowClip
         if args.clip > 0:
-            # === global ===
-            # embed_gradients = tf.clip_by_global_norm(embed_gradients, args.clip)
-            # === id, slot ===
             lower_bound = args.clip * sqrt(args.sparse_embed_dim) * args.bound
             embed_gradients_clipped = []
             for w, g in zip(embed_vars, embed_gradients):
@@ -150,34 +144,11 @@ class CustomModel(tf.keras.Model):
                     w.name.find(prefix) + len(prefix): w.name.find("/")
                 ]
 
-                # == slot ==
-                # g_clipped = tf.clip_by_norm(g, args.clip)
-                # == id ==
                 g_clipped = clip_id_norm(w, g, ratio=args.clip,
                                          ids=uniq_ids[col_name], cnts=uniq_cnt[col_name], min_w=lower_bound)
-                # == id ==
-                # g_clipped = clip_id_norm(w, g, ratio=args.clip,
-                #                                ids=uniq_ids[col_name], cnts=uniq_cnt[col_name], min_w=lower_bound, const=True)
-
-                if args.clip_skip_epoch > 0:
-                    g_clipped = tf.cond(
-                        self.cur_step < int(
-                            args.clip_skip_epoch * num_step_per_epoch),
-                        lambda: g, lambda: g_clipped
-                    )
                 embed_gradients_clipped.append(g_clipped)
 
             embed_gradients = embed_gradients_clipped
-
-        if args.clip_dense > 0:
-            for w, g in zip(dense_vars, dense_gradients):
-                dense_gradients_clipped = []
-                if "dnn/kernel" not in w.name:
-                    dense_gradients_clipped.append(g)
-                else:
-                    # g_clipped = clip_kernel_norm(w, g, ratio=args.clip_dense)
-                    g_clipped = tf.clip_by_norm(w, args.clip_dense)
-                    dense_gradients_clipped.append(g_clipped)
 
         gradients = embed_gradients + dense_gradients
 

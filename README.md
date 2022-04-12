@@ -51,15 +51,15 @@ The meaning of hyperparameters in the command line is as follows:
 | --bs          | batch size                                  |
 | --lr_embed    | learning rate for the embedding layer       |
 | --lr          | learning rate for the dense weights         |
-| --l2          | L2-regularization weight $\lambda$          |
-| --clip        | CowClip coefficient $r$                     |
-| --bound       | CowClip bound $\zeta$                       |
+| --l2          | L2-regularization weight λ                  |
+| --clip        | CowClip coefficient r                       |
+| --bound       | CowClip bound ζ                             |
 | --warmup      | number of epochs to warmup on dense weights |
 | --init_stddev | initialization weight standard deviation    |
 
 The hyperparameters neet to be scaled are listed as follows. For Criteo dataset:
 
-| bs   | lr       | l2     | $\zeta$ | DeepFM AUC(%) | Time(min) |
+| bs   | lr       | l2     | ζ       | DeepFM AUC(%) | Time(min) |
 | :--- | :------- | :----- | :-----: | :-----------: | :-------: |
 | 1K   | 8e-4     | 1e-4   |  1e-5   |     80.86     |    768    |
 | 2K   | 11.31e-4 | 2e-4   |  1e-5   |     80.93     |    390    |
@@ -72,7 +72,7 @@ The hyperparameters neet to be scaled are listed as follows. For Criteo dataset:
 
 For Avazu dataset:
 
-| bs   | lr      | l2     | $\zeta$ | DeepFM AUC(%) | Time(min) |
+| bs   | lr      | l2     | ζ       | DeepFM AUC(%) | Time(min) |
 | :--- | :------ | :----- | :-----: | :-----------: | :-------: |
 | 1K   | 1e-4    | 1e-4   |  1e-3   |     78.83     |    210    |
 | 2K   | 1.41e-4 | 2e-4   |  1e-3   |     78.82     |    108    |

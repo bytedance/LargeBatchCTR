@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-def clip_id_norm(w, g, ratio=1, ids=None, cnts=None, min_w=0.03, const=False):
+def cow_clip(w, g, ratio=1, ids=None, cnts=None, min_w=0.03, const=False):
     if isinstance(g, tf.IndexedSlices):
         # FIXME: This part is not tested
         values = tf.convert_to_tensor(g.values)

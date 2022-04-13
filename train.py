@@ -6,7 +6,7 @@ import tensorflow as tf
 import tensorflow_addons as tfa
 from sklearn.metrics import log_loss, roc_auc_score
 
-from clip import clip_id_norm
+from clip import cow_clip
 from data_utils import load_data, load_feature_name
 from deepctr.feature_column import DenseFeat, SparseFeat, get_feature_names
 from deepctr.models import DCN, WDL, DCNMix, DeepFM
@@ -144,7 +144,7 @@ class CustomModel(tf.keras.Model):
                     w.name.find(prefix) + len(prefix): w.name.find("/")
                 ]
 
-                g_clipped = clip_id_norm(w, g, ratio=args.clip,
+                g_clipped = cow_clip(w, g, ratio=args.clip,
                                          ids=uniq_ids[col_name], cnts=uniq_cnt[col_name], min_w=lower_bound)
                 embed_gradients_clipped.append(g_clipped)
 

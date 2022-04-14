@@ -105,9 +105,10 @@ pip install -r requirements.txt
 
 ```bibtex
 @article{zheng2022cowclip,
-  title={CowClip: Reducing CTR Prediction Model Training Time from 12 hours to 10 minutes on 1 GPU},
-  author={},
-  journal={arXiv preprint arXiv:},
+  title={{CowClip}: Reducing {CTR} Prediction Model Training Time from 12 hours to 10 minutes on 1 {GPU}},
+  author={Zangwei Zheng, Pengtai Xu, Xuan Zou, Da Tang, Zhen Li, Chenguang Xi, Peng Wu, Leqi Zou, Yijie Zhu, Ming Chen, Xiangzhuo Ding, Fuzhao Xue, Ziheng Qing, Youlong Cheng, Yang You},
+  journal={arXiv},
+  volume={abs/2204.06240},
   year={2022}
 }
 ```

@@ -3,3 +3,4 @@ tensorflow-addons
 tensorboard_plugin_profile
 pandas
 scikit-learn
+pyarrow

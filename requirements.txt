@@ -1,5 +1,5 @@
 tensorflow-gpu==2.4.0
-tensorflow-addons
+tensorflow-addons==0.12.0
 tensorboard_plugin_profile
 pandas
 scikit-learn

@@ -1,4 +1,5 @@
 # data
+*.feather
 !data/.gitkeep
 !data/criteo_kaggle/criteo_sample.txt
 data/criteo_kaggle/train.txt

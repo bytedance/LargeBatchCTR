@@ -10,7 +10,7 @@ Time from 12 hours to 10 minutes on 1 GPU" is implemented in this repo.
 First, download dataset to the data folder. Use `data_utils.py` to preprocess the data for training.
 
 ```sh
-python data_utils --dataset criteo_kaggle --split rand
+python data_utils.py --dataset criteo_kaggle --split rand
 ```
 
 Then, use `train.py` to train the network.
@@ -61,27 +61,27 @@ The hyperparameters neet to be scaled are listed as follows. For Criteo dataset:
 
 | bs   | lr       | l2     |   ζ   | DeepFM AUC(%) | Time(min) |
 | :--- | :------- | :----- | :---: | :-----------: | :-------: |
-| 1K   | 8e-4     | 1e-4   | 1e-5  |     80.86     |    768    |
-| 2K   | 11.31e-4 | 2e-4   | 1e-5  |     80.93     |    390    |
-| 4K   | 16e-4    | 4e-4   | 1e-5  |     80.97     |    204    |
-| 8K   | 22.62e-4 | 8e-4   | 1e-5  |     80.97     |    102    |
-| 16K  | 32e-4    | 16e-4  | 1e-5  |     80.94     |    48     |
-| 32K  | 45.25e-4 | 32e-4  | 1e-5  |     80.95     |    27     |
-| 64K  | 64e-4    | 64e-4  | 1e-5  |     80.96     |    15     |
-| 128K | 90.50e-4 | 128e-4 | 1e-5  |     80.90     |     9     |
+| 1K   | 8e-4     | 1e-5   | 1e-5  |     80.86     |    768    |
+| 2K   | 11.31e-4 | 2e-5   | 1e-5  |     80.93     |    390    |
+| 4K   | 16e-4    | 4e-5   | 1e-5  |     80.97     |    204    |
+| 8K   | 22.62e-4 | 8e-5   | 1e-5  |     80.97     |    102    |
+| 16K  | 32e-4    | 16e-5  | 1e-5  |     80.94     |    48     |
+| 32K  | 45.25e-4 | 32e-5  | 1e-5  |     80.95     |    27     |
+| 64K  | 64e-4    | 64e-5  | 1e-5  |     80.96     |    15     |
+| 128K | 90.50e-4 | 128e-5 | 1e-5  |     80.90     |     9     |
 
 For Avazu dataset:
 
 | bs   | lr      | l2    |   ζ   | DeepFM AUC(%) | Time(min) |
 | :--- | :------ | :---- | :---: | :-----------: | :-------: |
-| 1K   | 1e-4    | 1e-4  | 1e-3  |     78.83     |    210    |
-| 2K   | 1.41e-4 | 2e-4  | 1e-3  |     78.82     |    108    |
-| 4K   | 2e-4    | 4e-4  | 1e-4  |     78.90     |    54     |
-| 8K   | 2.83e-4 | 8e-4  | 1e-4  |     79.06     |    30     |
-| 16K  | 4e-4    | 16e-4 | 1e-4  |     79.01     |    17     |
-| 32K  | 5.66e-4 | 32e-4 | 1e-4  |     78.82     |    10     |
-| 64K  | 8e-4    | 64e-4 | 1e-4  |     78.82     |    6.7    |
-| 128K | 16e-4   | 96e-4 | 1e-4  |     78.80     |    4.8    |
+| 1K   | 1e-4    | 1e-5  | 1e-3  |     78.83     |    210    |
+| 2K   | 1.41e-4 | 2e-5  | 1e-3  |     78.82     |    108    |
+| 4K   | 2e-4    | 4e-5  | 1e-4  |     78.90     |    54     |
+| 8K   | 2.83e-4 | 8e-5  | 1e-4  |     79.06     |    30     |
+| 16K  | 4e-4    | 16e-5 | 1e-4  |     79.01     |    17     |
+| 32K  | 5.66e-4 | 32e-5 | 1e-4  |     78.82     |    10     |
+| 64K  | 8e-4    | 64e-5 | 1e-4  |     78.82     |    6.7    |
+| 128K | 16e-4   | 96e-5 | 1e-4  |     78.80     |    4.8    |
 
 ## Model List
 
